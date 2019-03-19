@@ -2,6 +2,9 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Couchbase;
+using Couchbase.Configuration.Client;
+using Couchbase.Core;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.HttpsPolicy;
@@ -26,6 +29,41 @@ namespace CouchbaseTimeouts
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_1);
+
+            services.AddSingleton<ICluster>(
+                new Cluster(new ClientConfiguration
+                {
+                    BucketConfigs = new Dictionary<string, BucketConfiguration>
+                    {
+                        {
+                            "DataBucket",
+                            new BucketConfiguration
+                            {
+                                BucketName = "DataBucket",
+                                Password = "testpassword",
+                                UseSsl = false,
+                                PoolConfiguration = new PoolConfiguration
+                                {
+                                    MinSize = 5,
+                                    MaxSize = 10
+                                }
+                            }
+                        }
+                    },
+                    Servers = new List<Uri>(new[]
+                    {
+                        new Uri("http://192.168.0.12:8091"),
+                        new Uri("http://192.168.0.13:8091"),
+                        new Uri("http://192.168.0.19:8091")
+                    })
+                }
+            ));
+
+            services.AddSingleton<IBucket>(sp =>
+            {
+                var cluster = sp.GetService<ICluster>();
+                return cluster.OpenBucket("DataBucket");
+            });
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
