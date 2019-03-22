@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Couchbase.Core;
 using Couchbase.IO;
@@ -13,6 +14,8 @@ namespace CouchbaseTimeouts.Controllers
     public class HomeController : Controller
     {
         const int NumKeys = 10000;
+
+        private static int _counter;
 
         private readonly IBucket _bucket;
         private readonly Random _random = new Random();
@@ -34,25 +37,27 @@ namespace CouchbaseTimeouts.Controllers
             _bucket = bucket;
         }
 
-        public IActionResult Index()
+        public async Task<IActionResult> Index()
         {
             var key = GetRandomKey();
             var startTime = DateTime.Now;
-            var result = _bucket.Get<string>(key);
+            Interlocked.Increment(ref _counter);
+            var result = await _bucket.GetAsync<string>(key);
+            Interlocked.Decrement(ref _counter);
             var elapsed = DateTime.Now - startTime;
             var secondsElapsed = (int)elapsed.TotalSeconds;
 
             if (result.Success)
             {
                 if (secondsElapsed > 1)
-                    Trace.WriteLine($"Successful GET took {secondsElapsed} seconds!");
+                    Trace.WriteLine($"{DateTime.Now.ToString("mm:ss")} Successful GET took {secondsElapsed} seconds!");
 
                 return Ok(result.Value);
             }
 
             if (result.Status == ResponseStatus.KeyNotFound)
             {
-                result = _bucket.Upsert(key, GetRandomValue(), TimeSpan.FromMinutes(5));
+                result = await _bucket.UpsertAsync(key, GetRandomValue(), TimeSpan.FromSeconds(5));
 
                 if (result.Success)
                 {
@@ -60,12 +65,13 @@ namespace CouchbaseTimeouts.Controllers
                 }
                 else
                 {
-                    Trace.WriteLine($"Failed to upsert: {result.Message}");
+                    Trace.WriteLine($"{DateTime.Now.ToString("mm:ss")} Failed to upsert: {result.Status} {result.Message}");
                     return StatusCode(500, result.Message);
                 }
             }
 
-            Trace.WriteLine($"Server error after {secondsElapsed} seconds: {result.Message}");
+            Trace.WriteLine($"{DateTime.Now.ToString("mm:ss")} Server error after {secondsElapsed} seconds: {result.Status} {result.Message}");
+            Trace.WriteLine($"{DateTime.Now.ToString("mm:ss")} Number of in-flight requests: {_counter}");
 
             return StatusCode(500, result.Message);
         }

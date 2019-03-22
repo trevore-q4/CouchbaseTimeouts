@@ -18,12 +18,14 @@ namespace CouchbaseTimeouts
 {
     public class Startup
     {
-        public Startup(IConfiguration configuration)
+        public Startup(IConfiguration configuration, ILoggerFactory loggerFactory)
         {
             Configuration = configuration;
+            LoggerFactory = loggerFactory;
         }
 
         public IConfiguration Configuration { get; }
+        public ILoggerFactory LoggerFactory { get; }
 
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
@@ -33,6 +35,7 @@ namespace CouchbaseTimeouts
             services.AddSingleton<ICluster>(
                 new Cluster(new ClientConfiguration
                 {
+                    LoggerFactory = LoggerFactory,
                     BucketConfigs = new Dictionary<string, BucketConfiguration>
                     {
                         {
@@ -45,7 +48,7 @@ namespace CouchbaseTimeouts
                                 PoolConfiguration = new PoolConfiguration
                                 {
                                     MinSize = 5,
-                                    MaxSize = 10
+                                    MaxSize = 20
                                 }
                             }
                         }
@@ -53,8 +56,8 @@ namespace CouchbaseTimeouts
                     Servers = new List<Uri>(new[]
                     {
                         new Uri("http://192.168.0.12:8091"),
-                        new Uri("http://192.168.0.13:8091"),
-                        new Uri("http://192.168.0.19:8091")
+                        new Uri("http://192.168.0.19:8091"),
+                        new Uri("http://192.168.0.20:8091")
                     })
                 }
             ));
