@@ -37,12 +37,12 @@ namespace CouchbaseTimeouts.Controllers
             _bucket = bucket;
         }
 
-        public async Task<IActionResult> Index()
+        public IActionResult Index()
         {
             var key = GetRandomKey();
             var startTime = DateTime.Now;
             Interlocked.Increment(ref _counter);
-            var result = await _bucket.GetAsync<string>(key);
+            var result = _bucket.Get<string>(key);
             Interlocked.Decrement(ref _counter);
             var elapsed = DateTime.Now - startTime;
             var secondsElapsed = (int)elapsed.TotalSeconds;
@@ -57,7 +57,7 @@ namespace CouchbaseTimeouts.Controllers
 
             if (result.Status == ResponseStatus.KeyNotFound)
             {
-                result = await _bucket.UpsertAsync(key, GetRandomValue(), TimeSpan.FromSeconds(5));
+                result = _bucket.Upsert(key, GetRandomValue(), TimeSpan.FromSeconds(5));
 
                 if (result.Success)
                 {
